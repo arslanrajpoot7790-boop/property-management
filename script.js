@@ -2,6 +2,8 @@ let labors = JSON.parse(localStorage.getItem('thekedar_labors')) || [];
 let owners = JSON.parse(localStorage.getItem('thekedar_owners')) || [];
 let expenses = JSON.parse(localStorage.getItem('thekedar_expenses')) || [];
 
+labors = labors.map(l => ({ attendance: [], ...l }));
+
 let currentOTP = null;
 
 function showToast(message, icon = 'info', title = '') {
@@ -100,7 +102,7 @@ function addLabor() {
     const name = document.getElementById('mName').value;
     const rate = document.getElementById('mRate').value;
     if (!name || !rate) return showToast("تفصیل درج کریں", 'error');
-    labors.push({ id: Date.now(), name, rate: parseFloat(rate), att: 0, kharcha: 0 });
+    labors.push({ id: Date.now(), name, rate: parseFloat(rate), att: 0, kharcha: 0, attendance: [] });
     saveData();
     document.getElementById('mName').value = '';
     document.getElementById('mRate').value = '';
@@ -117,6 +119,8 @@ function updateMazdoorTable() {
 
     labors.filter(l => l.name.toLowerCase().includes(searchTerm)).forEach(l => {
         const baqaya = (l.rate * l.att) - l.kharcha;
+        const last = l.attendance.length ? l.attendance[l.attendance.length - 1] : null;
+        const lastAttendanceText = last ? `${last.date} (${last.day})` : 'N/A';
         
         totalUjrat += (l.rate * l.att);
         totalPaid += l.kharcha;
@@ -127,10 +131,12 @@ function updateMazdoorTable() {
             <td><b>${l.name}</b></td>
             <td>${l.rate}</td>
             <td>${l.att}</td>
+            <td>${lastAttendanceText}</td>
             <td>${l.kharcha}</td>
             <td style="color: ${baqaya >= 0 ? 'green' : 'red'}; font-weight:bold">${baqaya}</td>
             <td>
                 <button class="btn-action" onclick="markAtt(${l.id})" title="حاضری لگائیں">حاضری</button>
+                <button class="btn-action" onclick="showAttendanceHistory(${l.id})" style="background: #8e44ad;">حاضری دیکھیں</button>
                 <button class="btn-edit" onclick="addKharcha(${l.id})" style="background: #3498db;">خرچہ</button>
                 <button class="btn-edit" onclick="editLabor(${l.id})">ترمیم</button>
                 <button class="btn-danger" onclick="deleteLabor(${l.id})">ڈیلیٹ</button>
@@ -146,9 +152,34 @@ function updateMazdoorTable() {
     }
 }
 
-function markAtt(id) {
-    labors.find(x => x.id === id).att += 1;
+function getDayName(dateString) {
+    const d = new Date(dateString);
+    const days = ['اتوار', 'پیر', 'منگل', 'بدھ', 'جمعرات', 'جمعہ', 'ہفتہ'];
+    return days[d.getDay()];
+}
+
+async function markAtt(id) {
+    const today = new Date().toISOString().split('T')[0];
+    const dateVal = await showPrompt("حاضری کی تاریخ منتخب کریں", 'date', today, 'تاریخ منتخب کریں');
+    if (dateVal === null || dateVal === '') return;
+    const l = labors.find(x => x.id === id);
+    const dayName = getDayName(dateVal);
+    l.attendance.push({ date: dateVal, day: dayName });
+    l.att = l.attendance.length;
     saveData();
+}
+
+function showAttendanceHistory(id) {
+    const l = labors.find(x => x.id === id);
+    const historyHtml = l.attendance.length
+        ? `<ul style="text-align:right; padding-right:0;">${l.attendance.map(a => `<li>${a.date} - ${a.day}</li>`).join('')}</ul>`
+        : '<p>کسی بھی تاریخ پر حاضری موجود نہیں ہے۔</p>';
+    Swal.fire({
+        title: `حاضری کی تفصیل: ${l.name}`,
+        html: historyHtml,
+        confirmButtonText: 'ٹھیک ہے',
+        customClass: { popup: 'swal2-popup' }
+    });
 }
 
 async function addKharcha(id) {
