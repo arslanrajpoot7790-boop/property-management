@@ -101,11 +101,13 @@ function saveData() {
 function addLabor() {
     const name = document.getElementById('mName').value;
     const rate = document.getElementById('mRate').value;
+    const mobile = document.getElementById('mMobile').value;
     if (!name || !rate) return showToast("تفصیل درج کریں", 'error');
-    labors.push({ id: Date.now(), name, rate: parseFloat(rate), att: 0, kharcha: 0, attendance: [], expenses: [] });
+    labors.push({ id: Date.now(), name, rate: parseFloat(rate), mobile: mobile || '', att: 0, kharcha: 0, attendance: [], expenses: [] });
     saveData();
     document.getElementById('mName').value = '';
     document.getElementById('mRate').value = '';
+    document.getElementById('mMobile').value = '';
 }
 
 function exportSectionToPDF(element, fileName) {
@@ -162,6 +164,7 @@ function updateMazdoorTable() {
                 <button class="btn-action" onclick="showAttendanceHistory(${l.id})" style="background: #8e44ad;">حاضری دیکھیں</button>
                 <button class="btn-action" onclick="addLaborExpense(${l.id})" style="background: #27ae60;">صارف خرچہ</button>
                 <button class="btn-action" onclick="showLaborExpenseHistory(${l.id})" style="background: #16a085;">خرچہ دیکھیں</button>
+                <button class="btn-action" onclick="showLaborProfile(${l.id})" style="background: #c0392b;">سارا ڈیٹا</button>
                 <button class="btn-edit" onclick="editLabor(${l.id})">ترمیم</button>
                 <button class="btn-danger" onclick="deleteLabor(${l.id})">ڈیلیٹ</button>
             </td>
@@ -259,6 +262,57 @@ function showLaborExpenseHistory(id) {
     });
 }
 
+function showLaborProfile(id) {
+    const l = labors.find(x => x.id === id);
+    if (!l) return;
+    const baqaya = (l.rate * l.att) - l.kharcha;
+    const total7days = getLaborWeeklyTotals();
+    const profileHtml = `
+        <div style="text-align:right; direction:rtl;">
+            <h3 style="color: #2c3e50; margin-bottom: 15px;">${l.name}</h3>
+            <table style="width:100%; margin-bottom: 15px; border-collapse: collapse;">
+                <tr style="background: #ecf0f1;">
+                    <td style="padding: 8px; border: 1px solid #bdc3c7; text-align:right;"><b>موبائل نمبر</b></td>
+                    <td style="padding: 8px; border: 1px solid #bdc3c7; text-align:right;">${l.mobile || 'درج نہیں'}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #bdc3c7; text-align:right;"><b>روز کی دیہاڑی</b></td>
+                    <td style="padding: 8px; border: 1px solid #bdc3c7; text-align:right;">${l.rate}</td>
+                </tr>
+                <tr style="background: #ecf0f1;">
+                    <td style="padding: 8px; border: 1px solid #bdc3c7; text-align:right;"><b>کل حاضری</b></td>
+                    <td style="padding: 8px; border: 1px solid #bdc3c7; text-align:right;">${l.att}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #bdc3c7; text-align:right;"><b>کل اجرت</b></td>
+                    <td style="padding: 8px; border: 1px solid #bdc3c7; text-align:right;">${(l.rate * l.att).toLocaleString()}</td>
+                </tr>
+                <tr style="background: #ecf0f1;">
+                    <td style="padding: 8px; border: 1px solid #bdc3c7; text-align:right;"><b>کل خرچہ</b></td>
+                    <td style="padding: 8px; border: 1px solid #bdc3c7; text-align:right;">${l.kharcha.toLocaleString()}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #bdc3c7; text-align:right;"><b>بقایا رقم</b></td>
+                    <td style="padding: 8px; border: 1px solid #bdc3c7; text-align:right; color: ${baqaya >= 0 ? 'green' : 'red'}; font-weight: bold;">${baqaya.toLocaleString()}</td>
+                </tr>
+            </table>
+        </div>
+    `;
+    const whatsappBtn = l.mobile ? `<a href="https://wa.me/${l.mobile}?text=${encodeURIComponent(`سلام ${l.name}، یہ آپ کا کام کا ریکارڈ ہے۔ اجرت: ${l.rate * l.att}، خرچہ: ${l.kharcha}، بقایا: ${baqaya}`)}" target="_blank" class="swal2-styled swal2-default-outline" style="background: #25d366; color: white; border: none; margin-left: 10px;">💬 WhatsApp بھیجیں</a>` : '';
+    Swal.fire({
+        title: `${l.name} کا مکمل ریکارڈ`,
+        html: profileHtml,
+        confirmButtonText: 'بند کریں',
+        didOpen: function(modal) {
+            if (whatsappBtn) {
+                const container = modal.querySelector('.swal2-actions');
+                container.insertAdjacentHTML('beforeend', whatsappBtn);
+            }
+        },
+        customClass: { popup: 'swal2-popup' }
+    });
+}
+
 async function addKharcha(id) {
     const amount = await showPrompt("کتنا خرچہ (ایڈوانس) دینا ہے؟", 'number', '', 'رقم درج کریں');
     if (amount !== null && amount !== '' && !isNaN(amount)) {
@@ -270,9 +324,13 @@ async function addKharcha(id) {
 
 async function editLabor(id) {
     const l = labors.find(x => x.id === id);
+    const nName = await showPrompt("نام", 'text', l.name, 'نام درج کریں');
+    const nMobile = await showPrompt("موبائل نمبر", 'tel', l.mobile, 'موبائل نمبر درج کریں');
     const nR = await showPrompt("نئی دیہاڑی؟", 'number', l.rate, 'نئی دیہاڑی درج کریں');
     const nA = await showPrompt("کل حاضری؟", 'number', l.att, 'حاضری درج کریں');
     const nK = await showPrompt("کل خرچہ؟", 'number', l.kharcha, 'خرچہ درج کریں');
+    if (nName !== null && nName !== '') l.name = nName;
+    if (nMobile !== null && nMobile !== '') l.mobile = nMobile;
     if (nR !== null && nR !== '') l.rate = parseFloat(nR);
     if (nA !== null && nA !== '') l.att = parseFloat(nA);
     if (nK !== null && nK !== '') l.kharcha = parseFloat(nK);
