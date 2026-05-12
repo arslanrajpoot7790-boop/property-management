@@ -4,14 +4,49 @@ let expenses = JSON.parse(localStorage.getItem('thekedar_expenses')) || [];
 
 let currentOTP = null;
 
+function showToast(message, icon = 'info', title = '') {
+    return Swal.fire({
+        title: title,
+        text: message,
+        icon: icon,
+        confirmButtonText: 'ٹھیک ہے',
+        customClass: { popup: 'swal2-popup' }
+    });
+}
+
+function showConfirm(message, title = 'کیا آپ یقین ہیں؟') {
+    return Swal.fire({
+        title: title,
+        text: message,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'ہاں',
+        cancelButtonText: 'نہیں'
+    }).then(result => result.isConfirmed);
+}
+
+async function showPrompt(message, inputType = 'text', inputValue = '', placeholder = '') {
+    const result = await Swal.fire({
+        title: message,
+        input: inputType,
+        inputValue: inputValue,
+        inputPlaceholder: placeholder,
+        showCancelButton: true,
+        confirmButtonText: 'ٹھیک ہے',
+        cancelButtonText: 'منسوخ',
+        inputAutoFocus: true
+    });
+    return result.isConfirmed ? result.value : null;
+}
+
 function sendOTP() {
     currentOTP = Math.floor(1000 + Math.random() * 9000).toString();
-    alert("Aapka naya Login OTP hai: " + currentOTP);
+    showToast("آپ کا نیا لاگ ان او ٹی پی ہے: " + currentOTP, 'success', 'او ٹی پی بھیج دیا گیا');
 }
 
 function checkLogin() {
     if (currentOTP === null) {
-        alert("Pehle 'Get OTP' button par click karein!");
+        showToast("پہلے 'او ٹی پی حاصل کریں' بٹن پر کلک کریں!", 'error');
         return;
     }
     if (document.getElementById('passCode').value === currentOTP) {
@@ -23,8 +58,9 @@ function checkLogin() {
         updateSummary();
         document.getElementById('passCode').value = '';
         currentOTP = null;
-    } else { 
-        alert("Galat OTP! Sahi OTP darj karein."); 
+        showToast('لاگ ان ہو گیا', 'success');
+    } else {
+        showToast("غلط او ٹی پی! درست او ٹی پی درج کریں۔", 'error');
     }
 }
 
@@ -63,7 +99,7 @@ function saveData() {
 function addLabor() {
     const name = document.getElementById('mName').value;
     const rate = document.getElementById('mRate').value;
-    if (!name || !rate) return alert("Detail bharein");
+    if (!name || !rate) return showToast("تفصیل درج کریں", 'error');
     labors.push({ id: Date.now(), name, rate: parseFloat(rate), att: 0, kharcha: 0 });
     saveData();
     document.getElementById('mName').value = '';
@@ -94,10 +130,10 @@ function updateMazdoorTable() {
             <td>${l.kharcha}</td>
             <td style="color: ${baqaya >= 0 ? 'green' : 'red'}; font-weight:bold">${baqaya}</td>
             <td>
-                <button class="btn-action" onclick="markAtt(${l.id})" title="Hazri Lagayein">Hazri</button>
-                <button class="btn-edit" onclick="addKharcha(${l.id})" style="background: #3498db;">Kharcha</button>
-                <button class="btn-edit" onclick="editLabor(${l.id})">Edit</button>
-                <button class="btn-danger" onclick="deleteLabor(${l.id})">Del</button>
+                <button class="btn-action" onclick="markAtt(${l.id})" title="حاضری لگائیں">حاضری</button>
+                <button class="btn-edit" onclick="addKharcha(${l.id})" style="background: #3498db;">خرچہ</button>
+                <button class="btn-edit" onclick="editLabor(${l.id})">ترمیم</button>
+                <button class="btn-danger" onclick="deleteLabor(${l.id})">ڈیلیٹ</button>
             </td>
         </tr>
     `;
@@ -115,28 +151,28 @@ function markAtt(id) {
     saveData();
 }
 
-function addKharcha(id) {
-    const amount = prompt("Kitna kharcha (advance) dena hai?");
-    if (amount && !isNaN(amount)) {
+async function addKharcha(id) {
+    const amount = await showPrompt("کتنا خرچہ (ایڈوانس) دینا ہے؟", 'number', '', 'رقم درج کریں');
+    if (amount !== null && amount !== '' && !isNaN(amount)) {
         let l = labors.find(x => x.id === id);
         l.kharcha += parseFloat(amount);
         saveData();
     }
 }
 
-function editLabor(id) {
+async function editLabor(id) {
     const l = labors.find(x => x.id === id);
-    const nR = prompt("Nayi Dihadi?", l.rate);
-    const nA = prompt("Kul Hazri?", l.att);
-    const nK = prompt("Kul Kharcha?", l.kharcha);
-    if (nR !== null) l.rate = parseFloat(nR);
-    if (nA !== null) l.att = parseFloat(nA);
-    if (nK !== null) l.kharcha = parseFloat(nK);
+    const nR = await showPrompt("نئی دیہاڑی؟", 'number', l.rate, 'نئی دیہاڑی درج کریں');
+    const nA = await showPrompt("کل حاضری؟", 'number', l.att, 'حاضری درج کریں');
+    const nK = await showPrompt("کل خرچہ؟", 'number', l.kharcha, 'خرچہ درج کریں');
+    if (nR !== null && nR !== '') l.rate = parseFloat(nR);
+    if (nA !== null && nA !== '') l.att = parseFloat(nA);
+    if (nK !== null && nK !== '') l.kharcha = parseFloat(nK);
     saveData();
 }
 
-function deleteLabor(id) {
-    if (confirm("Delete karein?")) {
+async function deleteLabor(id) {
+    if (await showConfirm("کیا آپ ڈیلیٹ کرنا چاہتے ہیں؟")) {
         labors = labors.filter(x => x.id !== id);
         saveData();
     }
@@ -145,7 +181,7 @@ function deleteLabor(id) {
 // Malik Functions
 function addOwner() {
     const name = document.getElementById('ownerName').value;
-    if (!name) return alert("Naam likhein");
+    if (!name) return showToast("نام لکھیں", 'error');
     owners.push({ id: Date.now(), name, received: 0, history: [] });
     saveData();
     document.getElementById('ownerName').value = '';
@@ -161,25 +197,25 @@ function updateMalikTable() {
         <td>${o.received}</td>
         <td>${histHtml}</td>
         <td>
-            <button class="btn-action" onclick="receiveMoney(${o.id})">Paisa Mila</button>
-            <button class="btn-danger" onclick="deleteOwner(${o.id})">Del</button>
+            <button class="btn-action" onclick="receiveMoney(${o.id})">پیسہ ملا</button>
+            <button class="btn-danger" onclick="deleteOwner(${o.id})">ڈیلیٹ</button>
         </td>
     </tr>`;
     });
 }
 
-function receiveMoney(id) {
-    const amt = prompt("Kitni raqam mili?");
-    if (!amt) return;
-    const sender = prompt("Kis ne bheji?");
+async function receiveMoney(id) {
+    const amt = await showPrompt("کتنی رقم ملی؟", 'number', '', 'رقم درج کریں');
+    if (amt === null || amt === '') return;
+    const sender = await showPrompt("کس نے بھیجی؟", 'text', '', 'نام درج کریں');
     let o = owners.find(x => x.id === id);
     o.received += parseFloat(amt);
     o.history.push({ date: new Date().toLocaleDateString('en-GB'), amount: amt, from: sender || "N/A" });
     saveData();
 }
 
-function deleteOwner(id) {
-    if (confirm("Delete karein?")) {
+async function deleteOwner(id) {
+    if (await showConfirm("کیا آپ ڈیلیٹ کرنا چاہتے ہیں؟")) {
         owners = owners.filter(x => x.id !== id);
         saveData();
     }
@@ -192,7 +228,7 @@ function addExpense() {
     const amount = document.getElementById('kAmount').value;
     let dateVal = document.getElementById('kDate').value;
 
-    if (!name || !amount) return alert("Item aur Amount likhein!");
+    if (!name || !amount) return showToast("آئٹم اور رقم لکھیں!", 'error');
 
     if (!dateVal) {
         const today = new Date();
@@ -200,7 +236,7 @@ function addExpense() {
     }
 
     const d = new Date(dateVal);
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const days = ['اتوار', 'پیر', 'منگل', 'بدھ', 'جمعرات', 'جمعہ', 'ہفتہ'];
     const dayName = days[d.getDay()];
 
     expenses.push({ id: Date.now(), name, location, amount: parseFloat(amount), date: dateVal, day: dayName });
@@ -223,14 +259,14 @@ function updateKharchaTable() {
         <td>${e.amount}</td>
         <td>${e.date} (${e.day})</td>
         <td>
-            <button class="btn-danger" onclick="deleteExpense(${e.id})">Del</button>
+            <button class="btn-danger" onclick="deleteExpense(${e.id})">ڈیلیٹ</button>
         </td>
     </tr>`;
     });
 }
 
-function deleteExpense(id) {
-    if (confirm("Delete karein?")) {
+async function deleteExpense(id) {
+    if (await showConfirm("کیا آپ ڈیلیٹ کرنا چاہتے ہیں؟")) {
         expenses = expenses.filter(x => x.id !== id);
         saveData();
     }
