@@ -69,8 +69,8 @@ function checkLogin() {
 
 function updateSummary() {
     let totalAya = 0;
-    // Since we only have worker section now, income is 0
-    
+    owners.forEach(o => totalAya += o.received);
+
     let totalKharcha = 0;
     labors.forEach(l => totalKharcha += l.kharcha);
 
@@ -146,6 +146,11 @@ function updateMazdoorTable() {
 
     labors.filter(l => l.name.toLowerCase().includes(searchTerm)).forEach(l => {
         const baqaya = (l.rate * l.att) - l.kharcha;
+        const last = l.attendance.length ? l.attendance[l.attendance.length - 1] : null;
+        const lastExpense = l.expenses.length ? l.expenses[l.expenses.length - 1] : null;
+        const lastAttendanceText = last ? `${last.date} (${last.day})` : 'N/A';
+        const lastExpenseText = lastExpense ? `${lastExpense.date} (${lastExpense.day})` : 'N/A';
+
         totalUjrat += (l.rate * l.att);
         totalPaid += l.kharcha;
         totalBaqaya += baqaya;
@@ -329,13 +334,13 @@ function showLaborProfile(id) {
         title: `${l.name} کا مکمل ریکارڈ`,
         html: profileHtml,
         confirmButtonText: 'بند کریں',
-        didOpen: function(modal) {
+        didOpen: function (modal) {
             if (whatsappBtn) {
                 const container = modal.querySelector('.swal2-actions');
                 container.insertAdjacentHTML('beforeend', whatsappBtn);
             }
             const actionsContainer = modal.querySelector('.swal2-actions');
-            
+
             const expenseBtn = document.createElement('button');
             expenseBtn.textContent = '💰 خرچہ شامل کریں';
             expenseBtn.className = 'swal2-styled swal2-default-outline';
@@ -345,7 +350,7 @@ function showLaborProfile(id) {
                 setTimeout(() => showLaborProfile(id), 500);
             };
             actionsContainer.insertAdjacentElement('afterbegin', expenseBtn);
-            
+
             const historyBtn = document.createElement('button');
             historyBtn.textContent = '📋 خرچہ کی تفصیل';
             historyBtn.className = 'swal2-styled swal2-default-outline';
@@ -395,11 +400,11 @@ async function deleteLabor(id) {
 function addMalikExpense() {
     const description = document.getElementById('malikDescription').value;
     const amount = document.getElementById('malikAmount').value;
-    
+
     if (!description || !amount) {
         return showToast("تفصیل اور رقم درج کریں", 'error');
     }
-    
+
     const today = new Date().toISOString().split('T')[0];
     malikExpenses.push({
         id: Date.now(),
@@ -407,7 +412,7 @@ function addMalikExpense() {
         description: description,
         amount: parseFloat(amount)
     });
-    
+
     saveData();
     document.getElementById('malikDescription').value = '';
     document.getElementById('malikAmount').value = '';
@@ -460,10 +465,10 @@ async function editMalikExpense(id) {
     const expense = malikExpenses.find(x => x.id === id);
     const nDescription = await showPrompt("تفصیل", 'text', expense.description, 'تفصیل درج کریں');
     const nAmount = await showPrompt("رقم", 'number', expense.amount, 'رقم درج کریں');
-    
+
     if (nDescription !== null && nDescription !== '') expense.description = nDescription;
     if (nAmount !== null && nAmount !== '') expense.amount = parseFloat(nAmount);
-    
+
     saveData();
 }
 
@@ -485,7 +490,7 @@ function addMalikInvestment() {
     if (!amount) {
         return showToast("رقم درج کریں", 'error');
     }
-    
+
     const today = new Date().toISOString().split('T')[0];
     malikLedger.push({
         id: Date.now(),
@@ -494,7 +499,7 @@ function addMalikInvestment() {
         description: 'رقم ڈالی',
         amount: parseFloat(amount)
     });
-    
+
     saveData();
     document.getElementById('malikInvestAmount').value = '';
     showToast("رقم شامل ہو گی", 'success');
@@ -505,7 +510,7 @@ function addMalikIncome() {
     if (!amount) {
         return showToast("رقم درج کریں", 'error');
     }
-    
+
     const today = new Date().toISOString().split('T')[0];
     malikLedger.push({
         id: Date.now(),
@@ -514,7 +519,7 @@ function addMalikIncome() {
         description: 'رقم آئی',
         amount: parseFloat(amount)
     });
-    
+
     saveData();
     document.getElementById('malikIncomeAmount').value = '';
     showToast("رقم شامل ہو گی", 'success');
@@ -562,7 +567,7 @@ function updateMalikLedger() {
     allEntries.forEach(entry => {
         const amountColor = entry.amount > 0 ? '#27ae60' : '#e74c3c';
         const amountSign = entry.amount > 0 ? '+' : '';
-        
+
         list.innerHTML += `
         <tr>
             <td>${entry.date}</td>
